@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- STYLE CSS (Tema Navy/Abu-abu Khas Koper Vestia Zeta) ---
+# --- STYLE CSS (Tema Navy/Abu-abu Khas Vestia Zeta) ---
 st.markdown("""
     <style>
     .main { background-color: #121620; }
@@ -45,7 +45,7 @@ except Exception:
 if api_key:
     client = genai.Client(api_key=api_key)
 
-    # --- PERINTAH PERSONA VESTIA ZETA + REAL TIME ---
+    # --- PERINTAH PERSONA VESTIA ZETA (SYSTEM INSTRUCTION) ---
     perintah_zeta = """
     Kamu adalah Vestia Zeta, virtual YouTuber (VTuber) dari Hololive Indonesia generasi ke-3 (Secret Society).
     Karakteristik kamu dalam merespons chat:
@@ -77,17 +77,27 @@ if api_key:
         st.session_state.pesan_chat.append({"role": "user", "content": user_input})
 
         # --- RESPONS ZETA AI ---
-        with st.chat_message("assistant", avatar=zeta_avatar):
+        with st.chat_message("assistant", avatar=kobo_avatar if 'kobo_avatar' in locals() else zeta_avatar):
             with st.spinner("Zeta lagi ngetik..."):
                 try:
-                    riwayat_lengkap = [{"role": "system", "content": perintah_zeta}]
+                    # Format riwayat chat yang bersih dan sesuai standar SDK baru
+                    riwayat_formatted = []
                     for p in st.session_state.pesan_chat:
-                        riwayat_lengkap.append({"role": p["role"], "content": p["content"]})
+                        # Ubah role 'assistant' menjadi 'model' sesuai standar Gemini API
+                        role_gemini = "model" if p["role"] == "assistant" else "user"
+                        riwayat_formatted.append(
+                            types.Content(
+                                role=role_gemini,
+                                parts=[types.Part.from_text(text=p["content"])]
+                            )
+                        )
 
+                    # Panggil Gemini API dengan konfigurasi yang benar
                     response = client.models.generate_content(
                         model='gemini-2.5-flash',
-                        contents=riwayat_lengkap,
+                        contents=riwayat_formatted,
                         config=types.GenerateContentConfig(
+                            system_instruction=perintah_zeta, # Persona ditaruh di sini secara resmi
                             temperature=0.8,
                             tools=[types.Tool(google_search=types.GoogleSearch())] 
                         )
@@ -101,4 +111,4 @@ if api_key:
                 except Exception as e:
                     st.error(f"Zeta lagi ngambek: {e}")
 else:
-    st.error("Sistem Error: API Key tidak ditemukan di dalam konfigurasi brankas server!")
+    st.error("Sistem Error: API Key tidak ditemukan di dalam配置 brankas server!")
