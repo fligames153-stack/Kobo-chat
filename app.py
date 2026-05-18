@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- STYLE CSS (Tema Navy/Abu-abu Khas Vestia Zeta) ---
+# --- STYLE CSS (Custom Tombol Aksi Transparan & Minimalis) ---
 st.markdown("""
     <style>
     .main { background-color: #121620; }
@@ -17,18 +17,18 @@ st.markdown("""
     .stFileUploader label { color: #b0c4de !important; font-weight: bold; }
     .stTextInput input { background-color: #1c2331 !important; color: white !important; }
     
-    /* Desain tombol hapus biar kecil, rapi, dan mepet ke kanan bawah */
+    /* Bikin tombol ⋮ dan 🔄 jadi transparan, kecil, dan estetik */
     .stButton button {
-        padding: 2px 8px !important;
-        font-size: 11px !important;
-        border-radius: 5px !important;
-        background-color: #1c2331 !important;
-        color: #ff4b4b !important;
-        border: 1px solid #3d4b66 !important;
+        padding: 0px 6px !important;
+        font-size: 14px !important;
+        background-color: transparent !important;
+        color: #64748b !important;
+        border: none !important;
+        margin-top: -10px !important;
     }
     .stButton button:hover {
-        background-color: #ff4b4b !important;
-        color: white !important;
+        color: #ff4b4b !important;
+        background-color: transparent !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -73,34 +73,53 @@ if api_key:
     if "pesan_chat" not in st.session_state:
         st.session_state.pesan_chat = []
 
-    # Penampung indeks chat yang mau dieksekusi hapus
-    indeks_dihapus = None
+    indeks_target = None
+    aksi_terpilih = None
 
-    # Menampilkan obrolan lama + tombol delete otomatis
+    # Menampilkan obrolan lama + Tombol Menu Mini di bawahnya
     for idx, pesan in enumerate(st.session_state.pesan_chat):
         avatar_terpilih = user_avatar if pesan["role"] == "user" else zeta_avatar
         with st.chat_message(pesan["role"], avatar=avatar_terpilih):
             st.write(pesan["content"])
             
-            # Tombol hapus ditaruh di bawah teks chat masing-masing
-            if st.button("🗑️ Hapus dari sini ke bawah", key=f"del_{idx}"):
-                indeks_dihapus = idx
+            # Membuat baris kolom mini agar tombol sejajar rapi di pojok kiri bawah chat
+            col_del, col_ref, _ = st.columns([1, 1, 20])
+            with col_del:
+                if st.button("⋮", key=f"del_{idx}", help="Hapus dari sini ke bawah"):
+                    indeks_target = idx
+                    aksi_terpilih = "hapus"
+            with col_ref:
+                if pesan["role"] == "assistant":
+                    if st.button("🔄", key=f"ref_{idx}", help="Ganti respon (Regenerate)"):
+                        indeks_target = idx
+                        aksi_terpilih = "refresh"
 
-    # Eksekusi pemotongan chat jika ada tombol yang di-klik
-    if indeks_dihapus is not None:
-        # Memotong isi list chat (hanya menyisakan data sebelum indeks yang dipilih)
-        st.session_state.pesan_chat = st.session_state.pesan_chat[:indeks_dihapus]
-        st.rerun()
+    # Jalankan aksi hapus / refresh jika tombol di-klik
+    if indeks_target is not None:
+        if aksi_terpilih == "hapus":
+            st.session_state.pesan_chat = st.session_state.pesan_chat[:indeks_target]
+            st.rerun()
+        elif aksi_terpilih == "refresh":
+            # Potong riwayat tepat sebelum chat assistant ini, lalu set pemicu refresh
+            st.session_state.pesan_chat = st.session_state.pesan_chat[:indeks_target]
+            st.session_state.pemicu_refresh = True
+            st.rerun()
 
-    # --- KOTAK INPUT CHAT ---
+    # --- KONTROL PEMANGGILAN AI (INPUT BARU VS REFRESH) ---
+    jalankan_ai = False
+
     if user_input := st.chat_input("Ketik pesan buat Zeta di sini..."):
-        
         with st.chat_message("user", avatar=user_avatar):
             st.write(user_input)
-            
         st.session_state.pesan_chat.append({"role": "user", "content": user_input})
+        jalankan_ai = True
 
-        # --- RESPONS ZETA AI ---
+    if st.session_state.get("pemicu_refresh"):
+        st.session_state.pemicu_refresh = False # Reset pemicu
+        jalankan_ai = True
+
+    # --- PROSES GENERATE RESPONS ZETA ---
+    if jalankan_ai:
         with st.chat_message("assistant", avatar=zeta_avatar):
             with st.spinner("Zeta lagi ngetik..."):
                 try:
@@ -128,7 +147,7 @@ if api_key:
                     st.write(zeta_reply)
                     
                     st.session_state.pesan_chat.append({"role": "assistant", "content": zeta_reply})
-                    st.rerun() # Memicu refresh agar tombol delete langsung muncul di chat baru
+                    st.rerun()
                     
                 except Exception as e:
                     st.error(f"Zeta lagi ngambek: {e}")
