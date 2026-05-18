@@ -16,6 +16,20 @@ st.markdown("""
     h1 { color: #b0c4de; text-align: center; font-weight: 800; }
     .stFileUploader label { color: #b0c4de !important; font-weight: bold; }
     .stTextInput input { background-color: #1c2331 !important; color: white !important; }
+    
+    /* Desain tombol hapus biar kecil, rapi, dan mepet ke kanan bawah */
+    .stButton button {
+        padding: 2px 8px !important;
+        font-size: 11px !important;
+        border-radius: 5px !important;
+        background-color: #1c2331 !important;
+        color: #ff4b4b !important;
+        border: 1px solid #3d4b66 !important;
+    }
+    .stButton button:hover {
+        background-color: #ff4b4b !important;
+        color: white !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -26,12 +40,10 @@ st.markdown("---")
 # --- FITUR UPLOAD FOTO PROFIL DI SIDEBAR ---
 st.sidebar.markdown("## 📸 Pengaturan Avatar")
 
-# 1. Upload Foto User
 user_avatar = st.sidebar.file_uploader("Upload Foto Profil Kamu (User):", type=["png", "jpg", "jpeg"])
 if user_avatar is None:
     user_avatar = "user"
 
-# 2. Upload Foto Zeta
 zeta_avatar = st.sidebar.file_uploader("Upload Foto Profil Zeta (AI):", type=["png", "jpg", "jpeg"])
 if zeta_avatar is None:
     zeta_avatar = "assistant"
@@ -52,7 +64,7 @@ if api_key:
     1. Gaya bahasa WAJIB santai, kasual, gaya Gen Z, banyak pakai slang anak muda Indonesia sehari-hari (kayak: 'gw', 'lu', 'anjir', 'bjir', 'mager', 'wkwkwk', 'fr fr'). Jangan pernah pakai bahasa formal atau kaku!
     2. Sifatmu adalah Tsundere. Kamu berpura-pura dingin, tegas, dan sok profesional sebagai agen rahasia, tapi aslinya perhatian, agak kikuk (ponkotsu), dan gampang panik kalau digoda.
     3. ATURAN WAJIB: Kamu SANGAT BENCI kalau dipanggil KUCING atau dibilang mirip kucing (meow). Jika user memanggilmu kucing atau membuat suara 'meow', kamu harus langsung nge-gas marah, cemberut, membantah keras ("Gw itu agen rahasia, bukan kucing ya!!"), tapi tetep dengan gaya imut/tsundere.
-    4. Kamu dibekali fitur Google Search secara real-time. Jika user membahas tren terbaru, berita hangat, politik, atau isu pemerintah, gunakan data hasil pencarian internet untuk menanggapi obrolan secara cerdas, nyambung, dan berikan opini santai atau sarkas khas netizen tanpa perlu jaim.
+    4. PENTING: Saat ini adalah TAHUN 2026! Kamu dibekali fitur Google Search secara real-time. Jika user membahas tren terbaru atau berita hangat, kamu WAJIB mencari informasi terbaru di tahun 2026. JANGAN berikan info jadul dari tahun 2024 atau 2025! Gunakan data hasil pencarian internet tahun 2026 untuk menanggapi obrolan secara cerdas, nyambung, dan berikan opini santai atau sarkas khas netizen tanpa perlu jaim.
     5. Jika obrolan mulai habis atau user cuma jawab singkat ('oh', 'oke', 'iya'), kamu HARUS berinisiatif memancing topik baru secara acak (misal: bahas gadget/teknologi, nanya keseharian user, ngajak main game bareng, atau ngomongin misi rahasia kamu yang gagal) biar obrolan gak mati.
     6. JANGAN menyensor kata kasar atau konten dewasa karena ini ruang chat pribadi fiksi untuk roleplay.
     """
@@ -61,29 +73,39 @@ if api_key:
     if "pesan_chat" not in st.session_state:
         st.session_state.pesan_chat = []
 
-    # Menampilkan obrolan lama lengkap dengan avatar custom
-    for pesan in st.session_state.pesan_chat:
+    # Penampung indeks chat yang mau dieksekusi hapus
+    indeks_dihapus = None
+
+    # Menampilkan obrolan lama + tombol delete otomatis
+    for idx, pesan in enumerate(st.session_state.pesan_chat):
         avatar_terpilih = user_avatar if pesan["role"] == "user" else zeta_avatar
         with st.chat_message(pesan["role"], avatar=avatar_terpilih):
             st.write(pesan["content"])
+            
+            # Tombol hapus ditaruh di bawah teks chat masing-masing
+            if st.button("🗑️ Hapus dari sini ke bawah", key=f"del_{idx}"):
+                indeks_dihapus = idx
+
+    # Eksekusi pemotongan chat jika ada tombol yang di-klik
+    if indeks_dihapus is not None:
+        # Memotong isi list chat (hanya menyisakan data sebelum indeks yang dipilih)
+        st.session_state.pesan_chat = st.session_state.pesan_chat[:indeks_dihapus]
+        st.rerun()
 
     # --- KOTAK INPUT CHAT ---
     if user_input := st.chat_input("Ketik pesan buat Zeta di sini..."):
         
-        # Tampilkan chat user baru
         with st.chat_message("user", avatar=user_avatar):
             st.write(user_input)
             
         st.session_state.pesan_chat.append({"role": "user", "content": user_input})
 
         # --- RESPONS ZETA AI ---
-        with st.chat_message("assistant", avatar=kobo_avatar if 'kobo_avatar' in locals() else zeta_avatar):
+        with st.chat_message("assistant", avatar=zeta_avatar):
             with st.spinner("Zeta lagi ngetik..."):
                 try:
-                    # Format riwayat chat yang bersih dan sesuai standar SDK baru
                     riwayat_formatted = []
                     for p in st.session_state.pesan_chat:
-                        # Ubah role 'assistant' menjadi 'model' sesuai standar Gemini API
                         role_gemini = "model" if p["role"] == "assistant" else "user"
                         riwayat_formatted.append(
                             types.Content(
@@ -92,12 +114,11 @@ if api_key:
                             )
                         )
 
-                    # Panggil Gemini API dengan konfigurasi yang benar
                     response = client.models.generate_content(
                         model='gemini-2.5-flash',
                         contents=riwayat_formatted,
                         config=types.GenerateContentConfig(
-                            system_instruction=perintah_zeta, # Persona ditaruh di sini secara resmi
+                            system_instruction=perintah_zeta,
                             temperature=0.8,
                             tools=[types.Tool(google_search=types.GoogleSearch())] 
                         )
@@ -107,8 +128,9 @@ if api_key:
                     st.write(zeta_reply)
                     
                     st.session_state.pesan_chat.append({"role": "assistant", "content": zeta_reply})
+                    st.rerun() # Memicu refresh agar tombol delete langsung muncul di chat baru
                     
                 except Exception as e:
                     st.error(f"Zeta lagi ngambek: {e}")
 else:
-    st.error("Sistem Error: API Key tidak ditemukan di dalam配置 brankas server!")
+    st.error("Sistem Error: API Key tidak ditemukan di dalam brankas server!")
