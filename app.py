@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- STYLE CSS (Custom Tombol Aksi Transparan & Minimalis) ---
+# --- STYLE CSS (Merombak Popover Menjadi Titik Tiga Keren) ---
 st.markdown("""
     <style>
     .main { background-color: #121620; }
@@ -17,18 +17,30 @@ st.markdown("""
     .stFileUploader label { color: #b0c4de !important; font-weight: bold; }
     .stTextInput input { background-color: #1c2331 !important; color: white !important; }
     
-    /* Bikin tombol ⋮ dan 🔄 jadi transparan, kecil, dan estetik */
-    .stButton button {
-        padding: 0px 6px !important;
-        font-size: 14px !important;
+    /* Menyamarkan tombol popover biar cuma kelihatan icon titik tiga kecil */
+    div[data-testid="stPopover"] button {
         background-color: transparent !important;
-        color: #64748b !important;
         border: none !important;
-        margin-top: -10px !important;
+        padding: 0px 5px !important;
+        color: #64748b !important;
+        font-size: 16px !important;
+        float: right;
     }
-    .stButton button:hover {
-        color: #ff4b4b !important;
+    div[data-testid="stPopover"] button:hover {
+        color: #b0c4de !important;
+    }
+    /* Mempercantik tampilan tombol di dalam menu popover */
+    div[data-testid="stPopoverContent"] button {
+        width: 100% !important;
+        text-align: left !important;
         background-color: transparent !important;
+        border: none !important;
+        color: white !important;
+        padding: 5px 10px !important;
+    }
+    div[data-testid="stPopoverContent"] button:hover {
+        background-color: #1c2331 !important;
+        color: #ff4b4b !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -39,7 +51,6 @@ st.markdown("---")
 
 # --- FITUR UPLOAD FOTO PROFIL DI SIDEBAR ---
 st.sidebar.markdown("## 📸 Pengaturan Avatar")
-
 user_avatar = st.sidebar.file_uploader("Upload Foto Profil Kamu (User):", type=["png", "jpg", "jpeg"])
 if user_avatar is None:
     user_avatar = "user"
@@ -69,57 +80,71 @@ if api_key:
     6. JANGAN menyensor kata kasar atau konten dewasa karena ini ruang chat pribadi fiksi untuk roleplay.
     """
 
-    # --- MEMORI CHAT HISTORY ---
+    # Inisialisasi state memori chat & state edit
     if "pesan_chat" not in st.session_state:
         st.session_state.pesan_chat = []
+    if "editing_idx" not in st.session_state:
+        st.session_state.editing_idx = None
+    if "trigger_generate" not in st.session_state:
+        st.session_state.trigger_generate = False
 
-    indeks_target = None
-    aksi_terpilih = None
-
-    # Menampilkan obrolan lama + Tombol Menu Mini di bawahnya
+    # --- LOOP DISPLAY UTAMA CHAT HINGGA SELESAI ---
     for idx, pesan in enumerate(st.session_state.pesan_chat):
         avatar_terpilih = user_avatar if pesan["role"] == "user" else zeta_avatar
+        
         with st.chat_message(pesan["role"], avatar=avatar_terpilih):
-            st.write(pesan["content"])
-            
-            # Membuat baris kolom mini agar tombol sejajar rapi di pojok kiri bawah chat
-            col_del, col_ref, _ = st.columns([1, 1, 20])
-            with col_del:
-                if st.button("⋮", key=f"del_{idx}", help="Hapus dari sini ke bawah"):
-                    indeks_target = idx
-                    aksi_terpilih = "hapus"
-            with col_ref:
-                if pesan["role"] == "assistant":
-                    if st.button("🔄", key=f"ref_{idx}", help="Ganti respon (Regenerate)"):
-                        indeks_target = idx
-                        aksi_terpilih = "refresh"
+            # Jika pesan ini sedang dalam mode EDIT
+            if st.session_state.editing_idx == idx:
+                new_text = st.text_area("Edit pesan kamu:", value=pesan["content"], key=f"area_{idx}")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("💾 Simpan", key=f"save_{idx}"):
+                        role_asal = pesan["role"]
+                        # Potong semua chat di bawah posisi yang di-edit
+                        st.session_state.pesan_chat = st.session_state.pesan_chat[:idx]
+                        # Simpan text baru
+                        st.session_state.pesan_chat.append({"role": role_asal, "content": new_text})
+                        st.session_state.editing_idx = None
+                        # Jika yang diedit chat user, paksa Zeta merespons ulang
+                        if role_asal == "user":
+                            st.session_state.trigger_generate = True
+                        st.rerun()
+                with c2:
+                    if st.button("❌ Batal", key=f"cancel_{idx}"):
+                        st.session_state.editing_idx = None
+                        st.rerun()
+            else:
+                # Tampilkan text normal
+                st.write(pesan["content"])
+                
+                # MENU DROPDOWN TITIK TIGA DI POJOK BAWAH BALON CHAT
+                with st.popover("⋮", help="Opsi Pesan"):
+                    if st.button("🗑️ Hapus dari sini", key=f"del_{idx}"):
+                        st.session_state.pesan_chat = st.session_state.pesan_chat[:idx]
+                        st.rerun()
+                        
+                    if st.button("✏️ Edit Pesan", key=f"edit_{idx}"):
+                        st.session_state.editing_idx = idx
+                        st.rerun()
+                        
+                    # Tombol Refresh hanya muncul di chat milik AI Zeta
+                    if pesan["role"] == "assistant":
+                        if st.button("🔄 Refresh Respon", key=f"ref_{idx}"):
+                            # Hapus balasan Zeta ini dan di bawahnya, lalu generate ulang dari chat user terakhir
+                            st.session_state.pesan_chat = st.session_state.pesan_chat[:idx]
+                            st.session_state.trigger_generate = True
+                            st.rerun()
 
-    # Jalankan aksi hapus / refresh jika tombol di-klik
-    if indeks_target is not None:
-        if aksi_terpilih == "hapus":
-            st.session_state.pesan_chat = st.session_state.pesan_chat[:indeks_target]
-            st.rerun()
-        elif aksi_terpilih == "refresh":
-            # Potong riwayat tepat sebelum chat assistant ini, lalu set pemicu refresh
-            st.session_state.pesan_chat = st.session_state.pesan_chat[:indeks_target]
-            st.session_state.pemicu_refresh = True
-            st.rerun()
-
-    # --- KONTROL PEMANGGILAN AI (INPUT BARU VS REFRESH) ---
-    jalankan_ai = False
-
+    # --- INPUT CHAT BARU ---
     if user_input := st.chat_input("Ketik pesan buat Zeta di sini..."):
-        with st.chat_message("user", avatar=user_avatar):
-            st.write(user_input)
         st.session_state.pesan_chat.append({"role": "user", "content": user_input})
-        jalankan_ai = True
+        st.session_state.trigger_generate = True
+        st.rerun()
 
-    if st.session_state.get("pemicu_refresh"):
-        st.session_state.pemicu_refresh = False # Reset pemicu
-        jalankan_ai = True
-
-    # --- PROSES GENERATE RESPONS ZETA ---
-    if jalankan_ai:
+    # --- PROSES GENERATOR RESPON GEMINI ---
+    if st.session_state.trigger_generate:
+        st.session_state.trigger_generate = False # Reset flag kunci
+        
         with st.chat_message("assistant", avatar=zeta_avatar):
             with st.spinner("Zeta lagi ngetik..."):
                 try:
@@ -144,8 +169,6 @@ if api_key:
                     )
                     
                     zeta_reply = response.text
-                    st.write(zeta_reply)
-                    
                     st.session_state.pesan_chat.append({"role": "assistant", "content": zeta_reply})
                     st.rerun()
                     
