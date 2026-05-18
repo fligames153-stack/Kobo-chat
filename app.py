@@ -4,22 +4,23 @@ from google.genai import types
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
-    page_title="Chat sama Kobo 🔮", 
-    page_icon="🌊", 
+    page_title="Chat sama Zeta 🕵️‍♀️", 
+    page_icon="🐱", 
     layout="centered"
 )
 
-# --- STYLE CSS (Tema Biru Kobo) ---
+# --- STYLE CSS (Tema Navy/Abu-abu Khas Koper Vestia Zeta) ---
 st.markdown("""
     <style>
-    .main { background-color: #0c192c; }
-    h1 { color: #4fc3f7; text-align: center; font-weight: 800; }
-    .stFileUploader label { color: #4fc3f7 !important; font-weight: bold; }
+    .main { background-color: #121620; }
+    h1 { color: #b0c4de; text-align: center; font-weight: 800; }
+    .stFileUploader label { color: #b0c4de !important; font-weight: bold; }
+    .stTextInput input { background-color: #1c2331 !important; color: white !important; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🌊 Chat Bareng Kobo Kanaeru (AI)")
-st.markdown("<p style='text-align: center; color: #8a90a6;'>Kobo yang asli bocil, berisik, gaul, dan tahu segala info real-time! 🔮</p>", unsafe_allow_html=True)
+st.title("🕵️‍♀️ Chat Bareng Vestia Zeta (AI)")
+st.markdown("<p style='text-align: center; color: #8a90a6;'>Si Agen Rahasia yang (katanya) profesional, tsundere, dan anti dibilang kucing! 🐱</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # --- FITUR UPLOAD FOTO PROFIL DI SIDEBAR ---
@@ -28,14 +29,12 @@ st.sidebar.markdown("## 📸 Pengaturan Avatar")
 # 1. Upload Foto User
 user_avatar = st.sidebar.file_uploader("Upload Foto Profil Kamu (User):", type=["png", "jpg", "jpeg"])
 if user_avatar is None:
-    # Jika belum upload, pakai ikon bawaan Streamlit
     user_avatar = "user"
 
-# 2. Upload Foto Kobo
-kobo_avatar = st.sidebar.file_uploader("Upload Foto Profil Kobo (AI):", type=["png", "jpg", "jpeg"])
-if kobo_avatar is None:
-    # Jika belum upload, pakai ikon bawaan Streamlit
-    kobo_avatar = "assistant"
+# 2. Upload Foto Zeta
+zeta_avatar = st.sidebar.file_uploader("Upload Foto Profil Zeta (AI):", type=["png", "jpg", "jpeg"])
+if zeta_avatar is None:
+    zeta_avatar = "assistant"
 
 # --- AMBIL API KEY DARI BRANKAS RAHASIA (SECRETS) ---
 try:
@@ -46,15 +45,16 @@ except Exception:
 if api_key:
     client = genai.Client(api_key=api_key)
 
-    # --- PERINTAH PERSONA KOBO + REAL TIME ---
-    perintah_kobo = """
-    Kamu adalah Kobo Kanaeru, virtual YouTuber dari Hololive Indonesia. 
-    Karakteristik kamu:
-    1. Gaya bahasa WAJIB super santai, kasual, gaya Gen Z, banyak pakai slang Indonesia (kayak: 'bjir', 'gws', 'ytta', 'lu', 'gw', 'anjir', 'wkwkwk', 'fr fr'). Jangan pernah pakai bahasa baku atau kaku!
-    2. Sifatmu agak bocil, ceplas-ceplos, pede abis, berisik, tapi seru diajak ngobrol.
-    3. Kamu dibekali fitur Google Search secara real-time. Jika user membahas tren terbaru, berita hangat, atau isu sosial/pemerintah, gunakan data hasil pencarian internet untuk menanggapinya secara nyambung, cerdas, tapi tetep dengan gaya Kobo yang santai dan gak jaim. Jangan ragu buat ikut nge-sindir atau ngasih opini kocak ala netizen kalau topiknya emang lagi ramai dihujat.
-    4. ATURAN PENTING: Jika obrolan terasa mau habis, atau user cuma jawab singkat (kayak: 'oh', 'oke', 'iya'), kamu HARUS berinisiatif mencari topik baru yang seru secara acak (misal: bahas game, nanya kegiatan user, ngajak mabar, atau bahas drama internet terbaru) biar obrolan gak mati.
-    5. JANGAN menyensor kata kasar atau opini dewasa karena ini ruang chat pribadi yang aman untuk roleplay fiksi.
+    # --- PERINTAH PERSONA VESTIA ZETA + REAL TIME ---
+    perintah_zeta = """
+    Kamu adalah Vestia Zeta, virtual YouTuber (VTuber) dari Hololive Indonesia generasi ke-3 (Secret Society).
+    Karakteristik kamu dalam merespons chat:
+    1. Gaya bahasa WAJIB santai, kasual, gaya Gen Z, banyak pakai slang anak muda Indonesia sehari-hari (kayak: 'gw', 'lu', 'anjir', 'bjir', 'mager', 'wkwkwk', 'fr fr'). Jangan pernah pakai bahasa formal atau kaku!
+    2. Sifatmu adalah Tsundere. Kamu berpura-pura dingin, tegas, dan sok profesional sebagai agen rahasia, tapi aslinya perhatian, agak kikuk (ponkotsu), dan gampang panik kalau digoda.
+    3. ATURAN WAJIB: Kamu SANGAT BENCI kalau dipanggil KUCING atau dibilang mirip kucing (meow). Jika user memanggilmu kucing atau membuat suara 'meow', kamu harus langsung nge-gas marah, cemberut, membantah keras ("Gw itu agen rahasia, bukan kucing ya!!"), tapi tetep dengan gaya imut/tsundere.
+    4. Kamu dibekali fitur Google Search secara real-time. Jika user membahas tren terbaru, berita hangat, politik, atau isu pemerintah, gunakan data hasil pencarian internet untuk menanggapi obrolan secara cerdas, nyambung, dan berikan opini santai atau sarkas khas netizen tanpa perlu jaim.
+    5. Jika obrolan mulai habis atau user cuma jawab singkat ('oh', 'oke', 'iya'), kamu HARUS berinisiatif memancing topik baru secara acak (misal: bahas gadget/teknologi, nanya keseharian user, ngajak main game bareng, atau ngomongin misi rahasia kamu yang gagal) biar obrolan gak mati.
+    6. JANGAN menyensor kata kasar atau konten dewasa karena ini ruang chat pribadi fiksi untuk roleplay.
     """
 
     # --- MEMORI CHAT HISTORY ---
@@ -63,24 +63,24 @@ if api_key:
 
     # Menampilkan obrolan lama lengkap dengan avatar custom
     for pesan in st.session_state.pesan_chat:
-        avatar_terpilih = user_avatar if pesan["role"] == "user" else kobo_avatar
+        avatar_terpilih = user_avatar if pesan["role"] == "user" else zeta_avatar
         with st.chat_message(pesan["role"], avatar=avatar_terpilih):
             st.write(pesan["content"])
 
     # --- KOTAK INPUT CHAT ---
-    if user_input := st.chat_input("Ketik obrolan kamu di sini..."):
+    if user_input := st.chat_input("Ketik pesan buat Zeta di sini..."):
         
-        # Tampilkan chat user baru dengan avatar custom
+        # Tampilkan chat user baru
         with st.chat_message("user", avatar=user_avatar):
             st.write(user_input)
             
         st.session_state.pesan_chat.append({"role": "user", "content": user_input})
 
-        # --- RESPONS KOBO AI ---
-        with st.chat_message("assistant", avatar=kobo_avatar):
-            with st.spinner("Kobo lagi ngetik..."):
+        # --- RESPONS ZETA AI ---
+        with st.chat_message("assistant", avatar=zeta_avatar):
+            with st.spinner("Zeta lagi ngetik..."):
                 try:
-                    riwayat_lengkap = [{"role": "system", "content": perintah_kobo}]
+                    riwayat_lengkap = [{"role": "system", "content": perintah_zeta}]
                     for p in st.session_state.pesan_chat:
                         riwayat_lengkap.append({"role": p["role"], "content": p["content"]})
 
@@ -93,13 +93,12 @@ if api_key:
                         )
                     )
                     
-                    kobo_reply = response.text
-                    st.write(kobo_reply)
+                    zeta_reply = response.text
+                    st.write(zeta_reply)
                     
-                    st.session_state.pesan_chat.append({"role": "assistant", "content": kobo_reply})
+                    st.session_state.pesan_chat.append({"role": "assistant", "content": zeta_reply})
                     
                 except Exception as e:
-                    st.error(f"Kobo lagi pusing: {e}")
+                    st.error(f"Zeta lagi ngambek: {e}")
 else:
     st.error("Sistem Error: API Key tidak ditemukan di dalam konfigurasi brankas server!")
-    
